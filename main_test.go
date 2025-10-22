@@ -15,9 +15,9 @@ import (
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
+	// TODO: consider fixing reliance on hard coded database url
 	connStr := "postgres://postgres:password123@localhost:5432/rts-demo?sslmode=disable"
 	testDB, err := sql.Open("postgres", connStr)
-	// testDB, err := pgx.Connect(t.Context(), connStr)
 	if err != nil {
 		t.Fatalf("Failed to connect to test database: %v", err)
 	}
@@ -32,7 +32,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 		);
 	`)
 	if err != nil {
-		t.Fatalf("Failed to create test table: %v", err)
+		t.Fatalf("Failed to create user table: %v", err)
 	}
 
 	return testDB
@@ -40,11 +40,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 func setupTestApp(t *testing.T) *App {
 	db := setupTestDB(t)
-
 	store := sessions.NewCookieStore([]byte("test-key"))
-
-	app := New(db, store, initTemplate())
-
+	app := NewApp(db, store, initTemplate())
 	return app
 }
 
@@ -52,6 +49,7 @@ func TestSignupHandler(t *testing.T) {
 	app := setupTestApp(t)
 	defer app.db.Close()
 
+	// Create request
 	form := url.Values{}
 	form.Add("email", "test@example.com")
 	form.Add("password", "password123")
@@ -62,6 +60,7 @@ func TestSignupHandler(t *testing.T) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	// Create response
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(app.signupHandler)
 	handler.ServeHTTP(rr, req)
@@ -92,6 +91,7 @@ func TestLoginHandler(t *testing.T) {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
+	// Create request
 	form := url.Values{}
 	form.Add("email", "login@example.com")
 	form.Add("password", "password123")
@@ -102,6 +102,7 @@ func TestLoginHandler(t *testing.T) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	// Create response
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(app.loginHandler)
 	handler.ServeHTTP(rr, req)
@@ -121,11 +122,13 @@ func TestAuthMiddlewareWithoutAuth(t *testing.T) {
 	app := setupTestApp(t)
 	defer app.db.Close()
 
+	// Create request
 	req, err := http.NewRequest("GET", "/dashboard", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Create response
 	rr := httptest.NewRecorder()
 	handler := app.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -133,6 +136,7 @@ func TestAuthMiddlewareWithoutAuth(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
+	// Check does redirect
 	if status := rr.Code; status != http.StatusSeeOther {
 		t.Errorf("Unauthenticated request should redirect: got %v want %v", status, http.StatusSeeOther)
 	}
@@ -142,30 +146,29 @@ func TestAuthMiddlewareWithAuth(t *testing.T) {
 	app := setupTestApp(t)
 	defer app.db.Close()
 
+	// Create request
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	// Create response
+	rec := httptest.NewRecorder()
 	handler := app.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-
+	// Create session
 	session, err := app.store.Get(req, "auth-session")
 	if err != nil {
 		t.Fatalf("failed to get session: %v", err)
 	}
 	session.Values["authenticated"] = true
-
 	session.Save(req, rec)
-
 	cookie := rec.Result().Cookies()[0]
-
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(cookie)
-	rec = httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
+	// Check ok
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200 OK, got %d", rec.Code)
 	}
@@ -178,6 +181,7 @@ func TestStockHandlerInvalidSymbol(t *testing.T) {
 	app := setupTestApp(t)
 	defer app.db.Close()
 
+	// Create requst
 	form := url.Values{}
 	form.Add("symbol", "")
 
@@ -187,12 +191,13 @@ func TestStockHandlerInvalidSymbol(t *testing.T) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	// Create response
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(app.stockHandler)
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
 	}
 
 	body := rr.Body.String()
