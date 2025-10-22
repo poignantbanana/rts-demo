@@ -1,0 +1,113 @@
+{{define "dashboard.html"}}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📊 Stock Dashboard</h1>
+        <div class="user-info">
+          <span>{{.Email}}</span>
+          <a href="/logout" class="btn btn-small">Logout</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Lookup Stock Price</h2>
+        <form id="stockForm">
+          <div class="form-group">
+            <label for="symbol">Stock Symbol</label>
+            <input
+              type="text"
+              id="symbol"
+              name="symbol"
+              placeholder="e.g., AAPL, GOOGL, TSLA"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            Get Quote
+          </button>
+        </form>
+      </div>
+
+      <div id="result" class="card result-card" style="display: none">
+        <h3 id="resultSymbol"></h3>
+        <div class="stock-data">
+          <div class="stock-item">
+            <span class="label">Opening Price:</span>
+            <span class="value" id="openPrice"></span>
+          </div>
+          <div class="stock-item">
+            <span class="label">Current Price:</span>
+            <span class="value" id="currentPrice"></span>
+          </div>
+          <div class="stock-item">
+            <span class="label">High:</span>
+            <span class="value" id="highPrice"></span>
+          </div>
+          <div class="stock-item">
+            <span class="label">Low:</span>
+            <span class="value" id="lowPrice"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="error" class="alert alert-error" style="display: none"></div>
+    </div>
+
+    <script>
+      document
+        .getElementById("stockForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const symbol = document.getElementById("symbol").value.toUpperCase();
+          const resultDiv = document.getElementById("result");
+          const errorDiv = document.getElementById("error");
+
+          resultDiv.style.display = "none";
+          errorDiv.style.display = "none";
+
+          try {
+            const formData = new FormData();
+            formData.append("symbol", symbol);
+
+            const response = await fetch("/stock", {
+              method: "POST",
+              body: formData,
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+              errorDiv.textContent = data.error;
+              errorDiv.style.display = "block";
+            } else {
+              document.getElementById("resultSymbol").textContent = data.symbol;
+              document.getElementById("openPrice").textContent =
+                "$" + data.o.toFixed(2);
+              document.getElementById("currentPrice").textContent =
+                "$" + data.c.toFixed(2);
+              document.getElementById("highPrice").textContent =
+                "$" + data.h.toFixed(2);
+              document.getElementById("lowPrice").textContent =
+                "$" + data.l.toFixed(2);
+              resultDiv.style.display = "block";
+            }
+          } catch (error) {
+            console.log(error);
+            errorDiv.textContent =
+              "Failed to fetch stock data. Please try again.";
+            errorDiv.style.display = "block";
+          }
+        });
+    </script>
+  </body>
+</html>
+{{end}}
