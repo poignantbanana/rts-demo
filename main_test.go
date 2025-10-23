@@ -41,7 +41,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 func setupTestApp(t *testing.T) *App {
 	db := setupTestDB(t)
 	store := sessions.NewCookieStore([]byte("test-key"))
-	app := NewApp(db, store, initTemplate())
+	app := NewApp(db, store, initTemplates())
 	return app
 }
 
