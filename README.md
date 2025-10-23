@@ -27,14 +27,14 @@ A full-stack Go web application for real-time stock price lookups with secure us
 ### 1. Clone the Repository
 
 ```bash
-bashgit clone <your-repo-url>
+git clone <your-repo-url>
 cd rts-stock-app
 ```
 
 ### 2. Install Dependencies
 
 ```bash
-bashgo mod download
+go mod download
 ```
 
 ### 3. Set Up PostgreSQL
